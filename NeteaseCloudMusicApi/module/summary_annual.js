@@ -1,4 +1,4 @@
-// 年度听歌报告2017-2023
+// 年度听歌报告2017-2024
 const createOption = require('../util/option.js')
 module.exports = (query, request) => {
   const data = {}

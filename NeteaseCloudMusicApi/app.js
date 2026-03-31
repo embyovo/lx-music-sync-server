@@ -15,7 +15,4 @@ async function start() {
     checkVersion: true,
   })
 }
-
-module.exports={
-  start
-}
+start()
