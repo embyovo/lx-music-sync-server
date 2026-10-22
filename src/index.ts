@@ -4,7 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import { initLogger } from '@/utils/log4js'
 import defaultConfig from './defaultConfig'
-import { ENV_PARAMS, File } from './constants'
+import { ENV_PARAMS, File, SOURCE_DEFAULT_UPDATE_INTERVAL } from './constants'
 import { checkAndCreateDirSync } from './utils'
 
 type ENV_PARAMS_Type = typeof ENV_PARAMS
@@ -125,6 +125,21 @@ if (envParams.LIST_ADD_MUSIC_LOCATION_TYPE) {
   }
 }
 
+let sourceConfig: LX.SourceServiceConfig | null = null
+if (envParams.SOURCE_URL) {
+  let updateInterval = SOURCE_DEFAULT_UPDATE_INTERVAL
+  if (envParams.SOURCE_UPDATE_INTERVAL) {
+    const num = parseInt(envParams.SOURCE_UPDATE_INTERVAL)
+    if (!isNaN(num) && num >= 1) updateInterval = num
+  }
+  sourceConfig = {
+    url: envParams.SOURCE_URL,
+    updateInterval,
+    encryptUrl: !['false', '0'].includes(envParams.SOURCE_ENCRYPT_URL ?? 'true'),
+    publicAccess: ['true', '1'].includes(envParams.SOURCE_PUBLIC ?? 'false'),
+  }
+}
+
 if (envUsers.length) {
   const users: LX.Config['users'] = []
   let u
@@ -226,5 +241,5 @@ require('@/utils/migrate').default(global.lx.dataPath, global.lx.userPath)
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { startServer } = require('@/server')
-startServer(port, bindIP)
+startServer(port, bindIP, sourceConfig)
 

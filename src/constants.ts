@@ -7,6 +7,10 @@ export const ENV_PARAMS = [
   'PROXY_HEADER',
   'MAX_SNAPSHOT_NUM',
   'LIST_ADD_MUSIC_LOCATION_TYPE',
+  'SOURCE_URL',
+  'SOURCE_UPDATE_INTERVAL',
+  'SOURCE_ENCRYPT_URL',
+  'SOURCE_PUBLIC',
   'LX_USER_',
 ] as const
 
@@ -65,9 +69,15 @@ export const File = {
   dislikeDir: 'dislike',
   dislikeSnapshotDir: 'snapshot',
   dislikeSnapshotInfoJSON: 'snapshotInfo.json',
+  sourceDir: 'source',
+  sourceScriptFile: 'script.js',
+  sourceInfoJSON: 'info.json',
 } as const
 
 export const FeaturesList = [
   'list',
   'dislike',
+  'source',
 ] as const
+
+export const SOURCE_DEFAULT_UPDATE_INTERVAL = 24 * 60 // 音源自动更新检查间隔（分钟），默认24小时

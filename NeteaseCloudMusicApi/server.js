@@ -140,6 +140,14 @@ async function consturctServer(moduleDefs) {
    * Serving static files
    */
   app.use(express.static(path.join(__dirname, 'public')))
+
+  /**
+   * Local music static file serving
+   */
+  const localMusicDataDir = path.join(__dirname, 'data', 'local_music')
+  if (fs.existsSync(localMusicDataDir)) {
+    app.use('/local_music/file', express.static(localMusicDataDir))
+  }
   /**
    * CORS & Preflight request
    */
@@ -193,6 +201,8 @@ async function consturctServer(moduleDefs) {
     'daily_signin.js': '/daily_signin',
     'fm_trash.js': '/fm_trash',
     'personal_fm.js': '/personal_fm',
+    'local_music_download.js': '/local_music/download',
+    'local_music_delete.js': '/local_music/delete',
   }
 
   /**

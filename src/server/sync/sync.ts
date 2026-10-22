@@ -8,11 +8,12 @@ export const sync = async(socket: LX.Socket) => {
     disconnected = true
   })
   const enabledFeatures = await socket.remote.getEnabledFeatures('server', featureVersion)
+  const featureWriter = socket.feature as Record<string, LX.Sync.EnabledFeatures[keyof LX.Sync.EnabledFeatures]>
 
   if (disconnected) throw new Error('disconnected')
   for (const moduleName of FeaturesList) {
     if (enabledFeatures[moduleName]) {
-      socket.feature[moduleName] = enabledFeatures[moduleName]
+      featureWriter[moduleName] = enabledFeatures[moduleName]
       await modules[moduleName].sync(socket).catch(_ => _)
     }
     if (disconnected) throw new Error('disconnected')

@@ -8,6 +8,12 @@ import { SYNC_CLOSE_CODE, SYNC_CODE } from '@/constants'
 import { getUserSpace, releaseUserSpace, getUserName, getServerId } from '@/user'
 import { createMsg2call } from 'message2call'
 import express from 'express'
+import {
+  initSourceService,
+  getSourceInfo,
+  getSourceScript,
+  checkSourceAccess,
+} from './source'
 
 
 let status: LX.Sync.Status = {
@@ -126,7 +132,7 @@ function onSocketError(err: Error) {
   console.error(err)
 }
 
-const handleStartServer = async(port = 9527, ip = '127.0.0.1') => await new Promise(async (resolve, reject) => {
+const handleStartServer = async(port = 9527, ip = '127.0.0.1', sourceConfig: LX.SourceServiceConfig | null = null) => await new Promise(async (resolve, reject) => {
   // 只创建 httpServer，不再自定义 HTTP 路由
   const httpServer = http.createServer();
 
@@ -147,6 +153,38 @@ const handleStartServer = async(port = 9527, ip = '127.0.0.1') => await new Prom
     authCode(req, res, global.lx.config.users);
   });
 
+  // 音源文件 HTTP 接口：默认需要登录（仅接受推送给已登录客户端的签名地址）
+  expressApp.get('/source/info', (req, res) => {
+    if (!checkSourceAccess(req.query.u, req.query.d, req.query.k)) {
+      res.writeHead(403)
+      res.end('forbidden')
+      return
+    }
+    const info = getSourceInfo()
+    if (!info) {
+      res.writeHead(404)
+      res.end('not found')
+      return
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache' })
+    res.end(JSON.stringify(info))
+  });
+  expressApp.get('/source/script', (req, res) => {
+    if (!checkSourceAccess(req.query.u, req.query.d, req.query.k)) {
+      res.writeHead(403)
+      res.end('forbidden')
+      return
+    }
+    const script = getSourceScript()
+    if (script == null) {
+      res.writeHead(404)
+      res.end('not found')
+      return
+    }
+    res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-cache' })
+    res.end(script)
+  });
+
   // 让 express 处理所有 http 请求
   httpServer.on('request', expressApp);
 
@@ -159,10 +197,15 @@ const handleStartServer = async(port = 9527, ip = '127.0.0.1') => await new Prom
     socket.moduleReadys = {
       list: false,
       dislike: false,
+      source: false,
     }
     socket.feature = {
       list: false,
       dislike: false,
+    }
+    socket.hostInfo = {
+      host: request.headers.host ?? '',
+      proto: (request.headers['x-forwarded-proto'] as string)?.split(',')[0].trim() ?? 'http',
     }
     socket.on('pong', () => {
       socket.isAlive = true
@@ -306,6 +349,7 @@ const handleStartServer = async(port = 9527, ip = '127.0.0.1') => await new Prom
     startupLog.info(`Listening on ${ip} ${bind}`)
     resolve(null)
     void registerLocalSyncEvent(wss as LX.SocketServer)
+    void initSourceService(sourceConfig)
   })
 
   host = `http://${ip.includes(':') ? `[${ip}]` : ip}:${port}`
@@ -352,11 +396,11 @@ const handleStartServer = async(port = 9527, ip = '127.0.0.1') => await new Prom
 //   })
 // }
 
-export const startServer = async(port: number, ip: string) => {
+export const startServer = async(port: number, ip: string, sourceConfig: LX.SourceServiceConfig | null = null) => {
   // if (status.status) await handleStopServer()
 
   startupLog.info(`starting sync server in ${process.env.NODE_ENV == 'production' ? 'production' : 'development'}`)
-  await handleStartServer(port, ip).then(() => {
+  await handleStartServer(port, ip, sourceConfig).then(() => {
     // console.log('sync server started')
     status.status = true
     status.message = ''

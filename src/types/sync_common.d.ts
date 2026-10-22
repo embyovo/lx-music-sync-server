@@ -22,6 +22,7 @@ declare namespace LX {
     type ClientSyncActions = WarpPromiseRecord<{
       getEnabledFeatures: (serverType: ServerType, supportedFeatures: SupportedFeatures) => EnabledFeatures
       finished: () => void
+      onSourceSyncAction: (action: LX.Sync.Source.ActionSource) => void
     }>
     type ClientSyncHandlerActions<Socket> = WarpSyncHandlerActions<Socket, ClientSyncActions>
 

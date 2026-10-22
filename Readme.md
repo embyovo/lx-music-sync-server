@@ -160,6 +160,71 @@ server {
 
 注意 `$remote_addr` 的转发名字与 `config.js` 中的 `proxy.header` 对应，并同时启用 `proxy.enabled`（或与环境变量的 `PROXY_HEADER` 对应），这用于校验相同 IP 多次使用错误连接码连接时的封禁。
 
+## 音源自动更新与推送
+
+设置环境变量`SOURCE_URL`后，服务端会自动定时从该地址下载音源脚本文件（自定义源 JS 文件），并在文件变化时推送给已连接的客户端。
+
+### 工作机制
+
+1. 服务启动时与每个更新周期（`SOURCE_UPDATE_INTERVAL`，默认24小时）都会从`SOURCE_URL`下载音源文件
+2. 下载内容与本地缓存（`data/source/script.js`）的 MD5 对比，有变化才更新并推送，未变化则跳过
+3. 真实的音源地址只保存在服务端，**不会**下发给客户端；推送给客户端的是本服务的下载地址（`/source/script`），且该地址默认经过加密传输
+
+### HTTP 接口
+
+服务端提供两个 HTTP 接口供客户端使用：
+
+| 接口 | 说明
+|:---:| ---
+| `/source/script?u=<用户名>&d=<设备ID>&k=<签名>` | 获取最新音源脚本文件
+| `/source/info?u=<用户名>&d=<设备ID>&k=<签名>` | 获取音源信息（JSON），包含`name`、`md5`、`updateTime`、`size`
+
+**访问控制**：默认只有**登录了同步服务的客户端**才能获取音源——签名 `k` 是服务端基于登录用户名与设备 ID 计算的 HMAC 签名，只会通过同步 WebSocket 推送给已完成登录的客户端，第三方无法自行构造；用户被删除、设备登录信息被清除后，对应地址立即失效。若确实需要允许匿名下载（例如手动“在线导入”），可设置`SOURCE_PUBLIC=true`，此时接口无需任何参数。
+
+### 推送协议（供客户端实现）
+
+当前官方客户端尚未实现音源接收，需要在客户端（如 [lx-music-mobile](https://github.com/embyovo/lx-music-mobile)、[lx-music-desktop](https://github.com/embyovo/lx-music-desktop) 的 fork）中按以下协议实现：
+
+1. **特性协商**：客户端在同步连接的`getEnabledFeatures`中返回`source`特性（服务端`featureVersion.source`为`1`），未声明该特性的旧客户端不会收到任何推送，完全向后兼容
+2. **登录要求**：推送只发生在客户端通过同步服务登录并完成数据同步之后；同时音源下载地址是服务端为“该用户+该设备”签发的签名地址，未登录的客户端拿不到也不可伪造
+3. **接收推送**：服务端在客户端连接时及音源更新时调用客户端的`onSourceSyncAction`方法，参数结构：
+
+```ts
+{
+  action: 'source_update',
+  data: {
+    url: string        // 音源下载地址，encrypted 为 true 时是 AES 加密后的 base64 字符串
+    md5: string        // 音源文件 MD5，用于比对本地缓存版本
+    updateTime: number // 服务端音源更新时间戳（毫秒）
+    encrypted: boolean // url 是否经过加密
+  }
+}
+```
+
+4. **解密地址**：`encrypted`为`true`时，使用同步连接密钥（`keyInfo.key`，base64 格式）以 AES-128-ECB 解密`url`字段（与同步协议`/ah`认证使用的加密方式一致），解密后得到完整的音源下载地址
+5. **更新音源**：客户端比对`md5`与本地缓存，若不一致则下载`url`指向的脚本文件，校验 MD5 后按照“在线导入”相同的逻辑导入或替换自定义源
+
+### 服务端配置示例
+
+```bash
+# Linux / macOS
+SOURCE_URL='https://example.com/path/to/source.js' node index.js
+
+# 或在 ecosystem.config.js / Docker 中配置环境变量
+```
+
+支持在`config.js`中以`env.SOURCE_URL`的形式配置（所有`env.`开头的配置都会解析成环境变量）：
+
+```js
+module.exports = {
+  // ...
+  'env.SOURCE_URL': 'https://example.com/path/to/source.js',
+  'env.SOURCE_UPDATE_INTERVAL': '1440',
+  'env.SOURCE_ENCRYPT_URL': 'true',
+  'env.SOURCE_PUBLIC': 'false',
+}
+```
+
 ## 升级新版本
 
 若更新日志无特别说明，注意保留**你修改过**的 `config.js`、`ecosystem.config.js` 或 `Dockerfile` 之类的配置文件，以及 `data`、`logs` 目录即可，其他的都可以删除后再将新版本的文件复制进去，以下是更新日志无特别说明的更新流程：
@@ -207,6 +272,10 @@ server {
 | `MAX_SNAPSHOT_NUM` | 公共最大备份快照数。 |
 | `SERVER_NAME` | 同步服务名称。 |
 | `LIST_ADD_MUSIC_LOCATION_TYPE` | 公共添加歌曲到我的列表时的方式，可用值为 `top` 和 `bottom`。 |
+| `SOURCE_URL` | 音源文件地址，设置后启用音源自动更新与推送功能，详见[音源自动更新与推送](#音源自动更新与推送)。 |
+| `SOURCE_UPDATE_INTERVAL` | 音源自动更新检查间隔，单位为分钟，默认为 `1440`（24 小时）。 |
+| `SOURCE_ENCRYPT_URL` | 推送给客户端时是否加密音源下载地址，默认为 `true`，设为 `false` 或 `0` 关闭加密。 |
+| `SOURCE_PUBLIC` | 音源下载接口是否允许公开访问（跳过登录校验），默认为 `false`，设为 `true` 或 `1` 开启。 |
 | `LX_USER_` | 以 `LX_USER_` 开头的环境变量将被识别为用户配置，可用的配置语法为：<br />1. `LX_USER_user1='xxx'`；<br />2. `LX_USER_user1='{"password":"xxx"}'`。<br />其中 `LX_USER_` 会被去掉，剩下的 `user1` 为用户名，`xxx` 为用户密码（**连接码**）。<br />配置方式 1 为简写模式，只指定用户名及密码（链接码），其他配置使用公共配置。<br />配置方式 2 为 JSON 字符串格式，配置内容参考 `config.js`，由于该方式在变量名指定了用户名，所以 JSON 里的用户名是可选的。 |
 
 ### PM2 常用命令

@@ -49,3 +49,4 @@ export const initLogger = () => {
 export const startupLog = log4js.getLogger('startup')
 export const syncLog = log4js.getLogger('sync')
 export const accessLog = log4js.getLogger('access')
+export const sourceLog = log4js.getLogger('source')

@@ -7,14 +7,14 @@ import { modules } from '@/modules'
 const handler: LX.Sync.ServerSyncHandlerActions<LX.Socket> = {
   async onFeatureChanged(socket, feature) {
     // const userSpace = getUserSpace(socket.userInfo.name)
-    const beforeFeature = socket.feature
+    const beforeFeature = socket.feature as Record<string, LX.Sync.EnabledFeatures[keyof LX.Sync.EnabledFeatures]>
 
     for (const name of FeaturesList) {
       const newStatus = feature[name]
       if (newStatus == null) continue
-      beforeFeature[name] = feature[name]
+      beforeFeature[name] = newStatus
       socket.moduleReadys[name] = false
-      if (feature[name]) await modules[name].sync(socket).catch(_ => _)
+      if (newStatus) await modules[name].sync(socket).catch(_ => _)
     }
   },
 }

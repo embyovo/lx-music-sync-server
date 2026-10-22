@@ -11,6 +11,11 @@ declare global {
       moduleReadys: {
         list: boolean
         dislike: boolean
+        source: boolean
+      }
+      hostInfo: {
+        host: string
+        proto: string
       }
 
       onClose: (handler: (err: Error) => (void | Promise<void>)) => () => void
