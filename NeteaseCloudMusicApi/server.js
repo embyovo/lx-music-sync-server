@@ -192,7 +192,13 @@ async function consturctServer(moduleDefs) {
   /**
    * Cache
    */
-  app.use(cache('2 minutes', (_, res) => res.statusCode === 200))
+  const responseCache = cache('2 minutes', (_, res) => res.statusCode === 200)
+  app.use((req, res, next) => {
+    // These requests represent account activity; replaying a cached response
+    // would silently drop searches or plays (and POST bodies are not cache keys).
+    if (req.method !== 'GET' || req.path === '/search' || req.path === '/scrobble') return next()
+    return responseCache(req, res, next)
+  })
 
   /**
    * Special Routers

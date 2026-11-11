@@ -152,7 +152,7 @@ export const checkSourceAccess = (username: unknown, clientId: unknown, signatur
 }
 
 export const pushSourceToClient = async(client: LX.Socket) => {
-  if (!scriptContent || !scriptState || !client.isReady || !client.feature.source) return
+  if (!config || !scriptContent || !scriptState || !client.isReady || !client.feature.source) return
   const url = buildSourceUrl(client)
   if (url == null) {
     sourceLog.warn('push source skipped, client is not logged in:', client.keyInfo?.deviceName ?? '')
@@ -161,10 +161,10 @@ export const pushSourceToClient = async(client: LX.Socket) => {
   const action: LX.Sync.Source.ActionSource = {
     action: 'source_update',
     data: {
-      url: config!.encryptUrl ? aesEncrypt(url, client.keyInfo.key) : url,
+      url: config.encryptUrl ? aesEncrypt(url, client.keyInfo.key) : url,
       md5: scriptState.md5,
       updateTime: scriptState.updateTime,
-      encrypted: !!config!.encryptUrl,
+      encrypted: !!config.encryptUrl,
     },
   }
   await client.remote.onSourceSyncAction(action).catch(err => {

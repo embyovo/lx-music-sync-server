@@ -13,6 +13,7 @@ import {
   getSourceInfo,
   getSourceScript,
   checkSourceAccess,
+  pushSourceToClient,
 } from './source'
 
 
@@ -107,6 +108,10 @@ const handleConnection = async(socket: LX.Socket, request: IncomingMessage) => {
   // console.log(socket.handshake.query)
 
   socket.isReady = true
+  // The initial source feature sync runs before isReady and therefore cannot
+  // push. Send it as soon as the handshake has completed instead of waiting
+  // for the client to request the feature again.
+  void pushSourceToClient(socket)
 }
 
 const handleUnconnection = (userName: string) => {
